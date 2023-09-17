@@ -55,7 +55,7 @@ fn format_status(options: Options) -> Result<String> {
     let path = options.path;
     let substitues = [
         ("https://github.com/".to_string(), "\u{e708}".to_string()),
-        ("git@github.com/".to_string(), "\u{e708}".to_string()),
+        ("git@github.com".to_string(), "\u{e708}".to_string()),
         ("https://gitlab.com".to_string(), "\u{f296}".to_string()),
         ("git@gitlab.com".to_string(), "\u{f296}".to_string()),
         ("https://bitbucket.org".to_string(), "\u{e703}".to_string()),
