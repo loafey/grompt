@@ -30,6 +30,11 @@ struct Options {
     /// Print errors to `stderr` instead of silently exiting.
     #[arg(short = 'E', long = "error", default_value = "false")]
     print_error: bool,
+    /// Add custom icons for your own GIT hosts, alternatively override the built in-ones.
+    /// Add input `-o "git@|<STRING>", to replace the icon for all `git@` remotes.
+    /// Use the option multiple times for multiple icons, `-o "git@|<STRING>" -o "https://github.com|<STRING>"` etc.
+    #[arg(short = 'o', long = "icon-override", value_name = "STRING|STRING")]
+    icon_override: Vec<String>,
 }
 
 fn main() {
@@ -41,7 +46,6 @@ fn main() {
                 eprintln!("{e}");
             }
             std::process::exit(1);
-            //
         }
         Ok(res) => println!("{res}"),
     }
@@ -50,13 +54,23 @@ fn main() {
 fn format_status(options: Options) -> Result<String> {
     let path = options.path;
     let substitues = [
-        ("https://github.com/", "\u{e708}"),
-        ("git@github.com/", "\u{e708}"),
-        ("https://gitlab.com", "\u{f296}"),
-        ("git@gitlab.com", "\u{f296}"),
-        ("https://bitbucket.org", "\u{e703}"),
-        ("git@bitbucket.org", "\u{e703}"),
+        ("https://github.com/".to_string(), "\u{e708}".to_string()),
+        ("git@github.com/".to_string(), "\u{e708}".to_string()),
+        ("https://gitlab.com".to_string(), "\u{f296}".to_string()),
+        ("git@gitlab.com".to_string(), "\u{f296}".to_string()),
+        ("https://bitbucket.org".to_string(), "\u{e703}".to_string()),
+        ("git@bitbucket.org".to_string(), "\u{e703}".to_string()),
     ];
+    let user_overrides = options
+        .icon_override
+        .into_iter()
+        .filter_map(|s| {
+            s.split_once('|')
+                .map(|(s1, s2)| (s1.to_string(), s2.to_string()))
+        })
+        .chain(substitues)
+        .collect::<Vec<_>>();
+    println!("{user_overrides:?}");
 
     let repo = git2::Repository::open(path)?;
     let dirty = repo
@@ -78,9 +92,11 @@ fn format_status(options: Options) -> Result<String> {
         .filter_map(|s| repo.find_remote(s).ok())
         .map(|r| r.url().map(|s| s.to_string()).unwrap_or_default())
         .filter_map(|s| {
-            let sub = substitues.iter().find(|(start, _)| s.starts_with(start));
+            let sub = user_overrides
+                .iter()
+                .find(|(start, _)| s.starts_with(start));
             if let Some((_, sub)) = sub {
-                Some(*sub)
+                Some(&sub[..])
             } else {
                 None
             }
