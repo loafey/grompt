@@ -175,7 +175,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitstatus"
+name = "grompt"
 version = "0.1.0"
 dependencies = [
  "anyhow",
