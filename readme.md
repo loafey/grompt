@@ -2,6 +2,10 @@
 A very simple git status prompt.
 Simply call `grompt` to list the git status of the current repo.
 
+## Future work
+* Add the option to color more then the icon
+* Could refactor the code to make it prettier, as the current version was written under 2 hours :))
+
 ## Options
 ```
 Usage: grompt [OPTIONS]
