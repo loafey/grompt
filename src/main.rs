@@ -70,7 +70,6 @@ fn format_status(options: Options) -> Result<String> {
         })
         .chain(substitues)
         .collect::<Vec<_>>();
-    println!("{user_overrides:?}");
 
     let repo = git2::Repository::open(path)?;
     let dirty = repo
