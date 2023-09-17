@@ -1,13 +1,15 @@
+#![feature(let_chains)]
 use anyhow::{Error, Result};
 use clap::Parser;
+use colored::Colorize;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(author = "loafey", version = "0.1", about = "
-A tool to get the status of your GIT repos.
+A tool to get the status of your git repos.
 Designed to easily be integrated into prompts.", long_about = None)]
 struct Options {
-    /// The folder to check the GIT status of
+    /// The folder to check the git status of
     #[arg(short = 'p', long = "path", value_name = "FILE", default_value = ".")]
     path: PathBuf,
     /// Show parentheses around the output
@@ -30,11 +32,19 @@ struct Options {
     /// Print errors to `stderr` instead of silently exiting.
     #[arg(short = 'E', long = "error", default_value = "false")]
     print_error: bool,
-    /// Add custom icons for your own GIT hosts, alternatively override the built in-ones.
+    /// Add custom icons for your own git hosts, alternatively override the built in-ones.
     /// Add input `-o "git@|<STRING>", to replace the icon for all `git@` remotes.
     /// Use the option multiple times for multiple icons, `-o "git@|<STRING>" -o "https://github.com|<STRING>"` etc.
-    #[arg(short = 'o', long = "icon-override", value_name = "STRING|STRING")]
+    /// Optionally you can add three bytes after to add a color to the icon.
+    #[arg(
+        short = 'o',
+        long = "icon-override",
+        value_name = "STRING|STRING|U8,U8,U8?"
+    )]
     icon_override: Vec<String>,
+    /// Enables the use of custom icon colors.
+    #[arg(short = 'c', long = "icon-color", default_value = "false")]
+    icon_color: bool,
 }
 
 fn main() {
@@ -54,19 +64,53 @@ fn main() {
 fn format_status(options: Options) -> Result<String> {
     let path = options.path;
     let substitues = [
-        ("https://github.com/".to_string(), "\u{e708}".to_string()),
-        ("git@github.com".to_string(), "\u{e708}".to_string()),
-        ("https://gitlab.com".to_string(), "\u{f296}".to_string()),
-        ("git@gitlab.com".to_string(), "\u{f296}".to_string()),
-        ("https://bitbucket.org".to_string(), "\u{e703}".to_string()),
-        ("git@bitbucket.org".to_string(), "\u{e703}".to_string()),
+        (
+            "https://github.com/".to_string(),
+            "\u{e708}".to_string(),
+            Some([255, 255, 255]),
+        ),
+        (
+            "git@github.com".to_string(),
+            "\u{e708}".to_string(),
+            Some([255, 255, 255]),
+        ),
+        (
+            "https://gitlab.com".to_string(),
+            "\u{f296} ".to_string(),
+            Some([252, 109, 38]),
+        ),
+        (
+            "git@gitlab.com".to_string(),
+            "\u{f296} ".to_string(),
+            Some([252, 109, 38]),
+        ),
+        (
+            "https://bitbucket.org".to_string(),
+            "\u{e703}".to_string(),
+            Some([38, 132, 255]),
+        ),
+        (
+            "git@bitbucket.org".to_string(),
+            "\u{e703}".to_string(),
+            Some([38, 132, 255]),
+        ),
     ];
     let user_overrides = options
         .icon_override
         .into_iter()
         .filter_map(|s| {
-            s.split_once('|')
-                .map(|(s1, s2)| (s1.to_string(), s2.to_string()))
+            let mut splat = s.split('|');
+            let uri = splat.next()?.to_string();
+            let icon = splat.next()?.to_string();
+            if let Some(color) = splat.next() {
+                let mut color_splat = color.split(',');
+                let r: u8 = color_splat.next()?.parse().unwrap();
+                let g: u8 = color_splat.next()?.parse().unwrap();
+                let b: u8 = color_splat.next()?.parse().unwrap();
+                Some((uri, icon, Some([r, g, b])))
+            } else {
+                Some((uri, icon, None))
+            }
         })
         .chain(substitues)
         .collect::<Vec<_>>();
@@ -93,15 +137,19 @@ fn format_status(options: Options) -> Result<String> {
         .filter_map(|s| {
             let sub = user_overrides
                 .iter()
-                .find(|(start, _)| s.starts_with(start));
-            if let Some((_, sub)) = sub {
-                Some(&sub[..])
+                .find(|(start, _, _)| s.starts_with(start));
+            if let Some((_, sub, c)) = sub {
+                if options.icon_color &&  let Some([r, g, b]) = c {
+                    Some(sub.truecolor(*r, *g, *b))
+                } else {
+                    Some(sub[..].into())
+                }
             } else {
                 None
             }
         })
         .next()
-        .unwrap_or("\u{e702}");
+        .unwrap_or("\u{e702}".into());
     let mut s = format!(
         "{}{}",
         if dirty { &options.dirty_string } else { "" },
