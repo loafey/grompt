@@ -13,6 +13,9 @@ struct Options {
     /// Show parentheses around the output
     #[arg(short = 'P', long = "parentheses", default_value = "false")]
     parentheses: bool,
+    /// Show square brackets around the output
+    #[arg(short = 's', long = "square-brackets", default_value = "false")]
+    square_brackets: bool,
     /// Show a custom string when a repository is dirty.
     #[arg(
         short = 'd',
@@ -38,6 +41,7 @@ fn main() {
                 eprintln!("{e}");
             }
             std::process::exit(1);
+            //
         }
         Ok(res) => println!("{res}"),
     }
@@ -47,8 +51,11 @@ fn format_status(options: Options) -> Result<String> {
     let path = options.path;
     let substitues = [
         ("https://github.com/", "\u{e708}"),
-        ("https://bitbucket.org", "\u{e703}"),
+        ("git@github.com/", "\u{e708}"),
         ("https://gitlab.com", "\u{f296}"),
+        ("git@gitlab.com", "\u{f296}"),
+        ("https://bitbucket.org", "\u{e703}"),
+        ("git@bitbucket.org", "\u{e703}"),
     ];
 
     let repo = git2::Repository::open(path)?;
@@ -81,17 +88,18 @@ fn format_status(options: Options) -> Result<String> {
         .next()
         .unwrap_or("\u{e702}");
     let mut s = format!(
-        "{} {}{}",
-        if options.remote_icon {
-            &remote_icon
-        } else {
-            ""
-        },
+        "{}{}",
         if dirty { &options.dirty_string } else { "" },
         current_branch
     );
+    if options.remote_icon {
+        s = format!("{remote_icon} {s}")
+    }
     if options.parentheses {
         s = format!("({s})")
+    }
+    if options.square_brackets {
+        s = format!("[{s}]")
     }
 
     Ok(s)
