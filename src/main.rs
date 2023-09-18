@@ -60,11 +60,18 @@ struct Options {
     /// Show arrows indicating commit status.
     #[arg(short = 'r', long = "commit-arrows", default_value = "false")]
     commit_arrow: bool,
-    /// Automatically fetch after X minutes has elapsed since last fetch/pull.
-    /// Fetching does not occur unless specified.
-    /// Warning! Git fetching is not know for being super fast, so be prepared for occasional slow downs!
+    /// Reminds you to fetch after X minutes if you have not done so in X minutes.
     #[arg(short = 'f', long = "fetch-time", value_name = "UINT")]
     fetch_time: Option<u64>,
+    /// Reminds you to fetch after X minutes if you have not done so in X minutes.
+    #[arg(long = "fi", value_name = "STRING", default_value = "\u{f0954} ")]
+    fetch_icon: String,
+
+    /// Automatically fetch after X minutes has elapsed since last fetch/pull instead of just reminding you.
+    /// Does nothing unless you use the `-f` flag.
+    /// Warning! Git fetching is not know for being super fast, so be prepared for occasional slow downs!
+    #[arg(long = "sf", value_name = "BOOl", default_value = "false")]
+    should_fetch: bool,
 
     /// Override the commit behind arrow.
     #[arg(long = "commit-behind", default_value = "\u{ea9a}")]
@@ -231,11 +238,16 @@ fn format_status(options: Options) -> Result<String> {
         &[] as &[&std::ffi::OsStr],
     )?;
 
+    let mut fetch_reminder = None;
     if let Some(minutes) = options.fetch_time {
         let min_since_last = minutes_since_last(&repo)?;
-        if min_since_last > minutes {
-            // I could use `git2` but honestly easier this way.
-            Command::new("git").arg("fetch").spawn()?.wait()?;
+        if min_since_last >= minutes {
+            if options.should_fetch {
+                // I could use `git2` but honestly easier this way.
+                Command::new("git").arg("fetch").spawn()?.wait()?;
+            } else {
+                fetch_reminder = Some(&options.fetch_icon);
+            }
         }
     }
 
@@ -263,6 +275,9 @@ fn format_status(options: Options) -> Result<String> {
             let mut s = format!("{changes}{current_branch}");
             if let Some(remote_icon) = remote_icon {
                 s = format!("{remote_icon} {s}")
+            }
+            if let Some(fetch_reminder) = fetch_reminder {
+                s = format!("{fetch_reminder} {s}")
             }
             if options.commit_arrow {
                 let (is_ahead, is_behind) = commit_status(&repo);

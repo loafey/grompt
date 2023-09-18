@@ -41,7 +41,11 @@ Options:
   -r, --commit-arrows
           Show arrows indicating commit status
   -f, --fetch-time <UINT>
-          Automatically fetch after X minutes has elapsed since last fetch/pull. Fetching does not occur unless specified. Warning! Git fetching is not know for being super fast, so be prepared for occasional slow downs!
+          Reminds you to fetch after X minutes if you have not done so in X minutes
+      --fi <STRING>
+          Reminds you to fetch after X minutes if you have not done so in X minutes [default: "\u{f0954} "]
+      --sf
+          Automatically fetch after X minutes has elapsed since last fetch/pull instead of just reminding you. Does nothing unless you use the `-f` flag. Warning! Git fetching is not know for being super fast, so be prepared for occasional slow downs!
       --commit-behind <COMMIT_BEHIND>
           Override the commit behind arrow [default: ]
       --commit-ahead <COMMIT_AHEAD>
