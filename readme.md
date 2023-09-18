@@ -10,8 +10,7 @@ Example using `grompt -s -i` in my nushell prompt:
 (Note: the default icons use NerdFonts (FiraCode Nerd Fonts in the example), if you prefer to use something else (emojis or text for example), you can simply override them using `-o`!)
 
 ## Future work
-* Add the option to color more then the icon
-* Could refactor the code to make it prettier, as the current version was written under 2 hours :))
+* Add the option to color more than the icon
 
 ## Options
 ```
