@@ -2,6 +2,7 @@
 use anyhow::{Error, Result};
 use clap::Parser;
 use colored::Colorize;
+use git2::RepositoryOpenFlags;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -115,7 +116,11 @@ fn format_status(options: Options) -> Result<String> {
         .chain(substitues)
         .collect::<Vec<_>>();
 
-    let repo = git2::Repository::open(path)?;
+    let repo = git2::Repository::open_ext(
+        path,
+        RepositoryOpenFlags::CROSS_FS,
+        &[] as &[&std::ffi::OsStr],
+    )?;
     let dirty = repo
         .statuses(None)?
         .iter()
