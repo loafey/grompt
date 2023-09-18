@@ -3,7 +3,7 @@ A very simple git status prompt.
 Simply call `grompt` to list the git status of the current repo.
 
 
-Example using `grompt -s -i` in my nushell prompt:
+Example using `grompt -S -i` in my nushell prompt:
 
 ![example](example_pic.png)
 
