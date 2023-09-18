@@ -225,7 +225,6 @@ fn commit_status(repo: &Repository) -> (AheadRemote, BehindRemote) {
 fn minutes_since_last(repo: &Repository) -> Result<u64> {
     let mut p = repo.path().to_owned();
     p.push("FETCH_HEAD");
-    println!("{p:?}");
     let f = File::open(p)?;
     let modified_time = f.metadata()?.modified()?.elapsed()?;
     Ok(modified_time.as_secs() / 60)
