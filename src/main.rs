@@ -1,8 +1,8 @@
 #![feature(let_chains)]
 use anyhow::{Error, Result};
 use clap::Parser;
-use colored::Colorize;
-use git2::RepositoryOpenFlags;
+use colored::{ColoredString, Colorize};
+use git2::{string_array::StringArray, Remote, Repository, RepositoryOpenFlags};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -62,9 +62,8 @@ fn main() {
     }
 }
 
-fn format_status(options: Options) -> Result<String> {
-    let path = options.path;
-    let substitues = [
+fn create_icons(icon_override: Vec<String>) -> Vec<(String, String, Option<[u8; 3]>)> {
+    let icons = [
         (
             "https://github.com/".to_string(),
             "\u{e708}".to_string(),
@@ -96,8 +95,7 @@ fn format_status(options: Options) -> Result<String> {
             Some([38, 132, 255]),
         ),
     ];
-    let user_overrides = options
-        .icon_override
+    icon_override
         .into_iter()
         .filter_map(|s| {
             let mut splat = s.split('|');
@@ -113,9 +111,43 @@ fn format_status(options: Options) -> Result<String> {
                 Some((uri, icon, None))
             }
         })
-        .chain(substitues)
-        .collect::<Vec<_>>();
+        .chain(icons)
+        .collect::<Vec<_>>()
+}
 
+fn get_icon(
+    repo: &Repository,
+    icon_override: Vec<String>,
+    icon_color: bool,
+) -> Result<ColoredString> {
+    let icons = create_icons(icon_override);
+    let remotes = repo.remotes()?;
+    // If you have multiple remotes this is probably wrong :)
+    // Get a suitable icon from the remote
+    let res = remotes
+        .iter()
+        .flatten()
+        .filter_map(|s| repo.find_remote(s).ok())
+        .map(|r| r.url().map(|s| s.to_string()).unwrap_or_default())
+        .filter_map(|s| {
+            let sub = icons.iter().find(|(start, _, _)| s.starts_with(start));
+            if let Some((_, sub, c)) = sub {
+                if icon_color &&  let Some([r, g, b]) = c {
+            Some(sub.truecolor(*r, *g, *b))
+        } else {
+            Some(sub[..].into())
+        }
+            } else {
+                None
+            }
+        })
+        .next()
+        .unwrap_or("\u{e702}".into());
+    Ok(res)
+}
+
+fn format_status(options: Options) -> Result<String> {
+    let path = options.path;
     let repo = git2::Repository::open_ext(
         path,
         RepositoryOpenFlags::CROSS_FS,
@@ -132,35 +164,16 @@ fn format_status(options: Options) -> Result<String> {
     let current_branch = head
         .shorthand()
         .ok_or(Error::msg("Failed to get branch name"))?;
-    let remotes = repo.remotes()?;
-    // If you have multiple remotes this is probably wrong :)
-    let remote_icon = remotes
-        .iter()
-        .flatten()
-        .filter_map(|s| repo.find_remote(s).ok())
-        .map(|r| r.url().map(|s| s.to_string()).unwrap_or_default())
-        .filter_map(|s| {
-            let sub = user_overrides
-                .iter()
-                .find(|(start, _, _)| s.starts_with(start));
-            if let Some((_, sub, c)) = sub {
-                if options.icon_color &&  let Some([r, g, b]) = c {
-                    Some(sub.truecolor(*r, *g, *b))
-                } else {
-                    Some(sub[..].into())
-                }
-            } else {
-                None
-            }
-        })
-        .next()
-        .unwrap_or("\u{e702}".into());
+    let remote_icon = options.remote_icon.then(|| {
+        get_icon(&repo, options.icon_override, options.icon_color)
+            .expect("Failed to get remote icon!")
+    });
     let mut s = format!(
         "{}{}",
         if dirty { &options.dirty_string } else { "" },
         current_branch
     );
-    if options.remote_icon {
+    if let Some(remote_icon) = remote_icon {
         s = format!("{remote_icon} {s}")
     }
     if options.parentheses {
