@@ -267,11 +267,11 @@ fn format_status(options: Options) -> Result<String> {
             if options.commit_arrow {
                 let (is_ahead, is_behind) = commit_status(&repo);
                 if is_ahead && is_behind {
-                    s = format!("{}/{} {s}", options.commit_ahead, options.commit_behind)
+                    s = format!("{s} {}/{}", options.commit_ahead, options.commit_behind)
                 } else if is_ahead {
-                    s = format!("{} {s}", options.commit_ahead)
+                    s = format!("{s} {}", options.commit_ahead)
                 } else if is_behind {
-                    s = format!("{} {s}", options.commit_behind)
+                    s = format!("{s} {}", options.commit_behind)
                 }
             }
             s
