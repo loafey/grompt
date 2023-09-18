@@ -7,7 +7,7 @@ Example using `grompt -S -i` in my nushell prompt:
 
 ![example](example_pic.png)
 
-(Note: the default icons use NerdFonts (FiraCode Nerd Fonts in the example), if you prefer to use something else (emojis or text for example), you can simply override them using `-o`!)
+(Note: the default icons use NerdFonts (FiraCode Nerd Fonts in the example), if you prefer to use something else (emojis or text for example), you can simply override them using `-o`! Other icons, such as fetch reminders etc, have dedicated flags as well!)
 
 ## Future work
 * Add the option to color more than the icon
