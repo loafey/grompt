@@ -1,8 +1,7 @@
 #![feature(let_chains)]
 use anyhow::{Error, Result};
 use clap::Parser;
-use git2::{Repository, RepositoryOpenFlags};
-use owo_colors::OwoColorize;
+use git2::{Remote, Repository, RepositoryOpenFlags};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -115,63 +114,87 @@ fn create_icons(icon_override: Vec<String>) -> Vec<(String, String, Option<[u8; 
         .collect::<Vec<_>>()
 }
 
-fn get_icon(repo: &Repository, icon_override: Vec<String>, icon_color: bool) -> Result<String> {
-    let icons = create_icons(icon_override);
-    let remotes = repo.remotes()?;
+fn get_remote(repo: &Repository) -> Result<Remote<'_>> {
     // If you have multiple remotes this is probably wrong :)
-    // Get a suitable icon from the remote
-    let res = remotes
-        .iter()
-        .flatten()
-        .filter_map(|s| repo.find_remote(s).ok())
-        .map(|r| r.url().map(|s| s.to_string()).unwrap_or_default())
-        .filter_map(|s| {
-            let sub = icons.iter().find(|(start, _, _)| s.starts_with(start));
-            if let Some((_, sub, c)) = sub {
-                if icon_color &&  let Some([r, g, b]) = c {
-            Some(sub.truecolor(*r, *g, *b).to_string())
-        } else {
-            Some(sub[..].into())
-        }
-            } else {
-                None
-            }
-        })
-        .next()
-        .unwrap_or("\u{e702}".into());
-    Ok(res)
+    let remotes = repo.remotes()?;
+    let mut remotes = remotes.iter().flatten();
+    remotes
+        .find_map(|s| repo.find_remote(s).ok())
+        .ok_or(Error::msg("Failed to find any remotes!"))
 }
 
-fn format_status(options: Options) -> Result<String> {
-    let path = options.path;
-    let repo = git2::Repository::open_ext(
-        path,
-        RepositoryOpenFlags::CROSS_FS,
-        &[] as &[&std::ffi::OsStr],
-    )?;
-    let dirty = repo
-        .statuses(None)?
+fn get_icon(repo: &Repository, icon_override: Vec<String>, icon_color: bool) -> Result<String> {
+    // Bloats up the list of available methods for types when using Rust Analyzer,
+    // so importing it only here to avoid that.
+    use owo_colors::OwoColorize;
+    let icons = create_icons(icon_override);
+    // Get a suitable icon from the remote
+    let remote = get_remote(repo)?;
+    let remote_uri = remote.url().unwrap_or_default();
+
+    let icon = icons
+        .iter()
+        .find(|(start, _, _)| remote_uri.starts_with(start));
+    let icon = if let Some((_, sub, c)) = icon {
+        if icon_color && let Some([r,g,b]) = c {
+            sub.truecolor(*r, *g, *b).to_string()
+        } else {
+            sub.clone()
+        }
+    } else {
+        "\u{e702}".to_string()
+    };
+    Ok(icon)
+}
+
+fn repo_status(repo: &Repository) -> Result<bool> {
+    let statuses = repo.statuses(None)?;
+    let res = statuses
         .iter()
         .map(|s| s.status())
         .filter(|s| !s.is_ignored())
         .fold(0, |a, _| a + 1)
         > 0;
-    let head = repo.head()?;
-    let current_branch = head
-        .shorthand()
-        .ok_or(Error::msg("Failed to get branch name"))?;
-    let remote_icon = options.remote_icon.then(|| {
-        get_icon(&repo, options.icon_override, options.icon_color)
-            .expect("Failed to get remote icon!")
-    });
-    let mut s = format!(
-        "{}{}",
-        if dirty { &options.dirty_string } else { "" },
-        current_branch
-    );
-    if let Some(remote_icon) = remote_icon {
-        s = format!("{remote_icon} {s}")
-    }
+
+    // let test = statuses.iter().map(|s| s.status()).reduce(|a, s| a | s);
+    // println!("{test:?}");
+    // let head = repo.head()?;
+    // let oid = head.target().ok_or(Error::msg("Failed to get head!"))?;
+    // let commit = repo.find_commit(oid)?;
+    Ok(res)
+}
+
+fn format_status(options: Options) -> Result<String> {
+    let path = options.path;
+    let repo = Repository::open_ext(
+        path,
+        RepositoryOpenFlags::CROSS_FS,
+        &[] as &[&std::ffi::OsStr],
+    )?;
+    let dirty = repo_status(&repo)?;
+    let mut s = match repo.head() {
+        Ok(head) => {
+            let current_branch = head
+                .shorthand()
+                .ok_or(Error::msg("Failed to get branch name"))?;
+            let remote_icon = options.remote_icon.then(|| {
+                get_icon(&repo, options.icon_override, options.icon_color)
+                    .unwrap_or("\u{f071a}".to_string())
+            });
+            let mut s = format!(
+                "{}{}",
+                if dirty { &options.dirty_string } else { "" },
+                current_branch
+            );
+
+            if let Some(remote_icon) = remote_icon {
+                s = format!("{remote_icon} {s}")
+            }
+            s
+        }
+        Err(_) => "no head".to_string(),
+    };
+
     if options.parentheses {
         s = format!("({s})")
     }
