@@ -40,6 +40,8 @@ Options:
           Enables the use of custom icon colors
   -r, --commit-arrows
           Show arrows indicating commit status
+  -f, --fetch-time <UINT>
+          Automatically fetch after X minutes has elapsed since last fetch/pull. Fetching does not occur unless specified. Warning! Git fetching is not know for being super fast, so be prepared for occasional slow downs!
       --commit-behind <COMMIT_BEHIND>
           Override the commit behind arrow [default: ]
       --commit-ahead <COMMIT_AHEAD>

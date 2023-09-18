@@ -2,7 +2,7 @@
 use anyhow::{Error, Result};
 use clap::Parser;
 use git2::{Remote, Repository, RepositoryOpenFlags, Status};
-use std::path::PathBuf;
+use std::{fs::File, path::PathBuf, process::Command};
 
 #[derive(Parser, Debug)]
 #[command(author = "loafey", version = "0.1", about = "
@@ -60,6 +60,11 @@ struct Options {
     /// Show arrows indicating commit status.
     #[arg(short = 'r', long = "commit-arrows", default_value = "false")]
     commit_arrow: bool,
+    /// Automatically fetch after X minutes has elapsed since last fetch/pull.
+    /// Fetching does not occur unless specified.
+    /// Warning! Git fetching is not know for being super fast, so be prepared for occasional slow downs!
+    #[arg(short = 'f', long = "fetch-time", value_name = "UINT")]
+    fetch_time: Option<u64>,
 
     /// Override the commit behind arrow.
     #[arg(long = "commit-behind", default_value = "\u{ea9a}")]
@@ -210,6 +215,14 @@ fn commit_status(repo: &Repository) -> (AheadRemote, BehindRemote) {
     (false, false)
 }
 
+fn minutes_since_last(repo: &Repository) -> Result<u64> {
+    let mut p = repo.path().to_owned();
+    p.push("FETCH_HEAD");
+    let f = File::open(p)?;
+    let modified_time = f.metadata()?.modified()?.elapsed()?;
+    Ok(modified_time.as_secs() / 60)
+}
+
 fn format_status(options: Options) -> Result<String> {
     let path = options.path;
     let repo = Repository::open_ext(
@@ -217,8 +230,16 @@ fn format_status(options: Options) -> Result<String> {
         RepositoryOpenFlags::CROSS_FS,
         &[] as &[&std::ffi::OsStr],
     )?;
+
+    if let Some(minutes) = options.fetch_time {
+        let min_since_last = minutes_since_last(&repo)?;
+        if min_since_last > minutes {
+            // I could use `git2` but honestly easier this way.
+            Command::new("git").arg("fetch").spawn()?.wait()?;
+        }
+    }
+
     let (unstaged_changes, staged_changes) = repo_status(&repo)?;
-    dbg!(commit_status(&repo));
     let mut s = match repo.head() {
         Ok(head) => {
             let current_branch = head
