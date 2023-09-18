@@ -63,7 +63,7 @@ struct Options {
     /// Reminds you to fetch after X minutes if you have not done so in X minutes.
     #[arg(short = 'f', long = "fetch-time", value_name = "UINT")]
     fetch_time: Option<u64>,
-    /// Reminds you to fetch after X minutes if you have not done so in X minutes.
+    /// Override the icon displayed to remind you to fetch
     #[arg(long = "fi", value_name = "STRING", default_value = "\u{f0954} ")]
     fetch_icon: String,
 

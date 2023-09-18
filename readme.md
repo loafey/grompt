@@ -42,7 +42,7 @@ Options:
   -f, --fetch-time <UINT>
           Reminds you to fetch after X minutes if you have not done so in X minutes
       --fi <STRING>
-          Reminds you to fetch after X minutes if you have not done so in X minutes [default: "\u{f0954} "]
+          Override the icon displayed to remind you to fetch [default: "\u{f0954} "]
       --sf
           Automatically fetch after X minutes has elapsed since last fetch/pull instead of just reminding you. Does nothing unless you use the `-f` flag. Warning! Git fetching is not know for being super fast, so be prepared for occasional slow downs!
       --commit-behind <COMMIT_BEHIND>
