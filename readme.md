@@ -6,6 +6,7 @@ Simply call `grompt` to list the git status of the current repo.
 Example using `grompt -s -i` in my nushell prompt:
 
 ![example](example_pic.png)
+(Note: the default icons use NerdFonts (FiraCode Nerd Fonts in the example), if you prefer to use something else (emojis or textfor example), you can simply override them using `-o`!)
 
 ## Future work
 * Add the option to color more then the icon
