@@ -225,6 +225,7 @@ fn commit_status(repo: &Repository) -> (AheadRemote, BehindRemote) {
 fn minutes_since_last(repo: &Repository) -> Result<u64> {
     let mut p = repo.path().to_owned();
     p.push("FETCH_HEAD");
+    println!("{p:?}");
     let f = File::open(p)?;
     let modified_time = f.metadata()?.modified()?.elapsed()?;
     Ok(modified_time.as_secs() / 60)
@@ -240,13 +241,14 @@ fn format_status(options: Options) -> Result<String> {
 
     let mut fetch_reminder = None;
     if let Some(minutes) = options.fetch_time {
-        let min_since_last = minutes_since_last(&repo)?;
-        if min_since_last >= minutes {
-            if options.should_fetch {
-                // I could use `git2` but honestly easier this way.
-                Command::new("git").arg("fetch").spawn()?.wait()?;
-            } else {
-                fetch_reminder = Some(&options.fetch_icon);
+        if let Ok(min_since_last) = minutes_since_last(&repo) {
+            if min_since_last >= minutes {
+                if options.should_fetch {
+                    // I could use `git2` but honestly easier this way.
+                    Command::new("git").arg("fetch").spawn()?.wait()?;
+                } else {
+                    fetch_reminder = Some(&options.fetch_icon);
+                }
             }
         }
     }
