@@ -1,7 +1,7 @@
 #![feature(let_chains)]
 use anyhow::{Error, Result};
 use clap::Parser;
-use git2::{Remote, Repository, RepositoryOpenFlags};
+use git2::{Remote, Repository, RepositoryOpenFlags, Status};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -16,16 +16,28 @@ struct Options {
     #[arg(short = 'P', long = "parentheses", default_value = "false")]
     parentheses: bool,
     /// Show square brackets around the output
-    #[arg(short = 's', long = "square-brackets", default_value = "false")]
+    #[arg(short = 'S', long = "square-brackets", default_value = "false")]
     square_brackets: bool,
-    /// Show a custom string when a repository is dirty.
+    /// Show a custom string when a repository has unstaged changes.
     #[arg(
-        short = 'd',
-        long = "dirty-string",
+        short = 'u',
+        long = "unstaged-string",
         value_name = "STRING",
         default_value = "*"
     )]
-    dirty_string: String,
+    unstaged_string: String,
+    /// Show a custom string when a repository has staged changes.
+    /// Only used when you use the `--sc` flag
+    #[arg(
+        short = 't',
+        long = "staged-string",
+        value_name = "STRING",
+        default_value = "+"
+    )]
+    staged_string: String,
+    /// Seperate the symbols for staged and unstaged changes.
+    #[arg(long = "sc", value_name = "bool", default_value = "false")]
+    seperate_changes: bool,
     /// Show icons representative of your remote.
     #[arg(short = 'i', long = "icon", default_value = "false")]
     remote_icon: bool,
@@ -45,6 +57,16 @@ struct Options {
     /// Enables the use of custom icon colors.
     #[arg(short = 'c', long = "icon-color", default_value = "false")]
     icon_color: bool,
+    /// Show arrows indicating commit status.
+    #[arg(short = 'r', long = "commit-arrows", default_value = "false")]
+    commit_arrow: bool,
+
+    /// Override the commit behind arrow.
+    #[arg(long = "commit-behind", default_value = "\u{ea9a}")]
+    commit_behind: String,
+    /// Override the commit ahead arrow
+    #[arg(long = "commit-ahead", default_value = "\u{eaa1}")]
+    commit_ahead: String,
 }
 
 fn main() {
@@ -147,21 +169,45 @@ fn get_icon(repo: &Repository, icon_override: Vec<String>, icon_color: bool) -> 
     Ok(icon)
 }
 
-fn repo_status(repo: &Repository) -> Result<bool> {
+type HasUnstagedChanges = bool;
+type HasStagedChanges = bool;
+fn repo_status(repo: &Repository) -> Result<(HasUnstagedChanges, HasStagedChanges)> {
     let statuses = repo.statuses(None)?;
-    let res = statuses
+    let status = statuses
         .iter()
-        .map(|s| s.status())
-        .filter(|s| !s.is_ignored())
-        .fold(0, |a, _| a + 1)
-        > 0;
+        .map(|a| a.status())
+        .reduce(|a, b| a | b)
+        .unwrap_or(Status::empty());
+    let unstaged_change = status.is_wt_deleted()
+        || status.is_wt_modified()
+        || status.is_wt_new()
+        || status.is_wt_renamed()
+        || status.is_wt_typechange();
+    let staged_change = status.is_index_deleted()
+        || status.is_index_modified()
+        || status.is_index_new()
+        || status.is_index_renamed()
+        || status.is_index_typechange();
+    Ok((unstaged_change, staged_change))
+}
 
-    // let test = statuses.iter().map(|s| s.status()).reduce(|a, s| a | s);
-    // println!("{test:?}");
-    // let head = repo.head()?;
-    // let oid = head.target().ok_or(Error::msg("Failed to get head!"))?;
-    // let commit = repo.find_commit(oid)?;
-    Ok(res)
+/// Determine if the current HEAD is ahead/behind its remote. The tuple
+/// returned will be in the order ahead and then behind.
+///
+/// If the remote is not set or doesn't exist (like a detached HEAD),
+/// (false, false) will be returned.
+/// Yoinked from: https://github.com/rust-lang/git2-rs/issues/332#issuecomment-408453956
+type AheadRemote = bool;
+type BehindRemote = bool;
+fn commit_status(repo: &Repository) -> (AheadRemote, BehindRemote) {
+    let head = repo.revparse_single("HEAD").unwrap().id();
+    if let Ok((upstream, _)) = repo.revparse_ext("@{u}") {
+        return match repo.graph_ahead_behind(head, upstream.id()) {
+            Ok((commits_ahead, commits_behind)) => (commits_ahead > 0, commits_behind > 0),
+            Err(_) => (false, false),
+        };
+    }
+    (false, false)
 }
 
 fn format_status(options: Options) -> Result<String> {
@@ -171,7 +217,8 @@ fn format_status(options: Options) -> Result<String> {
         RepositoryOpenFlags::CROSS_FS,
         &[] as &[&std::ffi::OsStr],
     )?;
-    let dirty = repo_status(&repo)?;
+    let (unstaged_changes, staged_changes) = repo_status(&repo)?;
+    dbg!(commit_status(&repo));
     let mut s = match repo.head() {
         Ok(head) => {
             let current_branch = head
@@ -181,14 +228,30 @@ fn format_status(options: Options) -> Result<String> {
                 get_icon(&repo, options.icon_override, options.icon_color)
                     .unwrap_or("\u{f071a}".to_string())
             });
-            let mut s = format!(
-                "{}{}",
-                if dirty { &options.dirty_string } else { "" },
-                current_branch
-            );
-
+            let mut changes = String::new();
+            if options.seperate_changes {
+                if unstaged_changes {
+                    changes += &options.unstaged_string;
+                }
+                if staged_changes {
+                    changes += &options.staged_string;
+                }
+            } else if unstaged_changes || staged_changes {
+                changes += &options.unstaged_string;
+            }
+            let mut s = format!("{changes}{current_branch}");
             if let Some(remote_icon) = remote_icon {
                 s = format!("{remote_icon} {s}")
+            }
+            if options.commit_arrow {
+                let (is_ahead, is_behind) = commit_status(&repo);
+                if is_ahead && is_behind {
+                    s = format!("{}/{} {s}", options.commit_ahead, options.commit_behind)
+                } else if is_ahead {
+                    s = format!("{} {s}", options.commit_ahead)
+                } else if is_behind {
+                    s = format!("{} {s}", options.commit_behind)
+                }
             }
             s
         }
