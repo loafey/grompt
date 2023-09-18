@@ -22,10 +22,14 @@ Options:
           The folder to check the git status of [default: .]
   -P, --parentheses
           Show parentheses around the output
-  -s, --square-brackets
+  -S, --square-brackets
           Show square brackets around the output
-  -d, --dirty-string <STRING>
-          Show a custom string when a repository is dirty [default: *]
+  -u, --unstaged-string <STRING>
+          Show a custom string when a repository has unstaged changes [default: *]
+  -t, --staged-string <STRING>
+          Show a custom string when a repository has staged changes. Only used when you use the `--sc` flag [default: +]
+      --sc
+          Seperate the symbols for staged and unstaged changes
   -i, --icon
           Show icons representative of your remote
   -E, --error
@@ -34,6 +38,12 @@ Options:
           Add custom icons for your own git hosts, alternatively override the built in-ones. Add input `-o "git@|<STRING>", to replace the icon for all `git@` remotes. Use the option multiple times for multiple icons, `-o "git@|<STRING>" -o "https://github.com|<STRING>"` etc. Optionally you can add three bytes after to add a color to the icon
   -c, --icon-color
           Enables the use of custom icon colors
+  -r, --commit-arrows
+          Show arrows indicating commit status
+      --commit-behind <COMMIT_BEHIND>
+          Override the commit behind arrow [default: ]
+      --commit-ahead <COMMIT_AHEAD>
+          Override the commit ahead arrow [default: ]
   -h, --help
           Print help
   -V, --version
