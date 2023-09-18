@@ -1,8 +1,8 @@
 #![feature(let_chains)]
 use anyhow::{Error, Result};
 use clap::Parser;
-use colored::{ColoredString, Colorize};
-use git2::{string_array::StringArray, Remote, Repository, RepositoryOpenFlags};
+use git2::{Repository, RepositoryOpenFlags};
+use owo_colors::OwoColorize;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -115,11 +115,7 @@ fn create_icons(icon_override: Vec<String>) -> Vec<(String, String, Option<[u8; 
         .collect::<Vec<_>>()
 }
 
-fn get_icon(
-    repo: &Repository,
-    icon_override: Vec<String>,
-    icon_color: bool,
-) -> Result<ColoredString> {
+fn get_icon(repo: &Repository, icon_override: Vec<String>, icon_color: bool) -> Result<String> {
     let icons = create_icons(icon_override);
     let remotes = repo.remotes()?;
     // If you have multiple remotes this is probably wrong :)
@@ -133,7 +129,7 @@ fn get_icon(
             let sub = icons.iter().find(|(start, _, _)| s.starts_with(start));
             if let Some((_, sub, c)) = sub {
                 if icon_color &&  let Some([r, g, b]) = c {
-            Some(sub.truecolor(*r, *g, *b))
+            Some(sub.truecolor(*r, *g, *b).to_string())
         } else {
             Some(sub[..].into())
         }
