@@ -1,88 +1,12 @@
 #![feature(let_chains)]
 use anyhow::{Error, Result};
-use clap::Parser;
 use git2::{Remote, Repository, RepositoryOpenFlags, Status};
-use std::{fs::File, path::PathBuf, process::Command};
-
-#[derive(Parser, Debug)]
-#[command(author = "loafey", version = "0.1", about = "
-A tool to get the status of your git repos.
-Designed to easily be integrated into prompts.", long_about = None)]
-struct Options {
-    /// The folder to check the git status of
-    #[arg(short = 'p', long = "path", value_name = "FILE", default_value = ".")]
-    path: PathBuf,
-    /// Show parentheses around the output
-    #[arg(short = 'P', long = "parentheses", default_value = "false")]
-    parentheses: bool,
-    /// Show square brackets around the output
-    #[arg(short = 'S', long = "square-brackets", default_value = "false")]
-    square_brackets: bool,
-    /// Show a custom string when a repository has unstaged changes.
-    #[arg(
-        short = 'u',
-        long = "unstaged-string",
-        value_name = "STRING",
-        default_value = "*"
-    )]
-    unstaged_string: String,
-    /// Show a custom string when a repository has staged changes.
-    /// Only used when you use the `--sc` flag
-    #[arg(
-        short = 't',
-        long = "staged-string",
-        value_name = "STRING",
-        default_value = "+"
-    )]
-    staged_string: String,
-    /// Seperate the symbols for staged and unstaged changes.
-    #[arg(long = "sc", value_name = "bool", default_value = "false")]
-    seperate_changes: bool,
-    /// Show icons representative of your remote.
-    #[arg(short = 'i', long = "icon", default_value = "false")]
-    remote_icon: bool,
-    /// Print errors to `stderr` instead of silently exiting.
-    #[arg(short = 'E', long = "error", default_value = "false")]
-    print_error: bool,
-    /// Add custom icons for your own git hosts, alternatively override the built in-ones.
-    /// Add input `-o "git@|<STRING>", to replace the icon for all `git@` remotes.
-    /// Use the option multiple times for multiple icons, `-o "git@|<STRING>" -o "https://github.com|<STRING>"` etc.
-    /// Optionally you can add three bytes after to add a color to the icon.
-    #[arg(
-        short = 'o',
-        long = "icon-override",
-        value_name = "STRING|STRING|U8,U8,U8?"
-    )]
-    icon_override: Vec<String>,
-    /// Enables the use of custom icon colors.
-    #[arg(short = 'c', long = "icon-color", default_value = "false")]
-    icon_color: bool,
-    /// Show arrows indicating commit status.
-    #[arg(short = 'r', long = "commit-arrows", default_value = "false")]
-    commit_arrow: bool,
-    /// Reminds you to fetch after X minutes if you have not done so in X minutes.
-    #[arg(short = 'f', long = "fetch-time", value_name = "UINT")]
-    fetch_time: Option<u64>,
-    /// Override the icon displayed to remind you to fetch
-    #[arg(long = "fi", value_name = "STRING", default_value = "\u{f0954} ")]
-    fetch_icon: String,
-
-    /// Automatically fetch after X minutes has elapsed since last fetch/pull instead of just reminding you.
-    /// Does nothing unless you use the `-f` flag.
-    /// Warning! Git fetching is not know for being super fast, so be prepared for occasional slow downs!
-    #[arg(long = "sf", value_name = "BOOl", default_value = "false")]
-    should_fetch: bool,
-
-    /// Override the commit behind arrow.
-    #[arg(long = "commit-behind", default_value = "\u{ea9a}")]
-    commit_behind: String,
-    /// Override the commit ahead arrow
-    #[arg(long = "commit-ahead", default_value = "\u{eaa1}")]
-    commit_ahead: String,
-}
+use options::{get_options, Options};
+use std::{fs::File, process::Command};
+mod options;
 
 fn main() {
-    let options = Options::parse();
+    let options = get_options();
     let print_error = options.print_error;
     match format_status(options) {
         Err(e) => {
@@ -263,7 +187,7 @@ fn format_status(options: Options) -> Result<String> {
                     .unwrap_or("\u{f071a}".to_string())
             });
             let mut changes = String::new();
-            if options.seperate_changes {
+            if options.separate_changes {
                 if unstaged_changes {
                     changes += &options.unstaged_string;
                 }

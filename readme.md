@@ -13,6 +13,35 @@ Example using `grompt -S -i` in my nushell prompt:
 * Add the option to color more than the icon
 
 ## Options
+The normal way of using `grompt` is by simply calling it, and then supplying options to customize it.
+Alternatively it can be customized by creating a config file (`~/.config/grompt/config.toml`). 
+If a config file is used, command line options are ignored [subject to change]. 
+
+The default config looks something like this: 
+```
+parentheses = false
+square_brackets = true
+unstaged_string = "*"
+staged_string = "+"
+separate_changes = true
+remote_icon = true
+print_error = false
+icon_override = [
+        "https://github.com|\ue708",
+        "git@github.com|\ue708",
+        "https://gitlab.com|\uf296 |252,109,38",
+        "git@gitlab.com|\uf296 |252,109,38"
+    ]
+icon_color = true
+commit_arrow = true
+fetch_icon = "󰥔 "
+should_fetch = true
+fetch_time = 30
+commit_behind = ""
+commit_ahead = ""
+```
+
+If you want to use command line options these are the available options:
 ```
 Usage: grompt [OPTIONS]
 
