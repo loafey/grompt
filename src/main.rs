@@ -227,11 +227,14 @@ fn format_status(options: Options) -> Result<String> {
                 let (unstaged_changes, staged_changes) = repo_status(&repo)?;
 
                 if unstaged_changes > 0 && staged_changes > 0 {
-                    changes += &format!(", {unstaged_changes} unstaged, {staged_changes} staged");
+                    changes += &format!(
+                        ", {unstaged_changes}{}, {staged_changes}{}",
+                        options.unstaged_string, options.staged_string,
+                    );
                 } else if unstaged_changes > 0 {
-                    changes += &format!(", {unstaged_changes} unstaged");
+                    changes += &format!(", {unstaged_changes}{}", options.unstaged_string);
                 } else if staged_changes > 0 {
-                    changes += &format!(", {staged_changes} staged");
+                    changes += &format!(", {staged_changes}{}", options.staged_string);
                 }
             }
             let mut s = if options.detailed_info {
