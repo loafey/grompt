@@ -118,6 +118,11 @@ pub struct Options {
     #[arg(long = "commit-ahead", default_value = "\u{eaa1}")]
     #[serde(default = "default_commit_ahead")]
     pub commit_ahead: String,
+
+    /// Show a more detailed view
+    #[arg(long = "di", default_value = "false")]
+    #[serde(default)]
+    pub detailed_info: bool,
 }
 
 fn get_options_file() -> Result<Result<Options, toml::de::Error>> {

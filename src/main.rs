@@ -107,7 +107,7 @@ fn get_icon(repo: &Repository, icon_override: Vec<String>, icon_color: bool) -> 
 
 type HasUnstagedChanges = bool;
 type HasStagedChanges = bool;
-fn repo_status(repo: &Repository) -> Result<(HasUnstagedChanges, HasStagedChanges)> {
+fn repo_status_bin(repo: &Repository) -> Result<(HasUnstagedChanges, HasStagedChanges)> {
     let statuses = repo.statuses(None)?;
     let status = statuses
         .iter()
@@ -127,23 +127,48 @@ fn repo_status(repo: &Repository) -> Result<(HasUnstagedChanges, HasStagedChange
     Ok((unstaged_change, staged_change))
 }
 
+fn repo_status(repo: &Repository) -> Result<(usize, usize)> {
+    let statuses = repo.statuses(None)?;
+    let (mut unstaged, mut staged) = (0, 0);
+    for status in statuses.iter().map(|a| a.status()) {
+        let unstaged_change = status.is_wt_deleted()
+            || status.is_wt_modified()
+            || status.is_wt_new()
+            || status.is_wt_renamed()
+            || status.is_wt_typechange();
+        let staged_change = status.is_index_deleted()
+            || status.is_index_modified()
+            || status.is_index_new()
+            || status.is_index_renamed()
+            || status.is_index_typechange();
+        if unstaged_change {
+            unstaged += 1
+        }
+        if staged_change {
+            staged += 1;
+        }
+    }
+
+    Ok((unstaged, staged))
+}
+
 /// Determine if the current HEAD is ahead/behind its remote. The tuple
 /// returned will be in the order ahead and then behind.
 ///
 /// If the remote is not set or doesn't exist (like a detached HEAD),
 /// (false, false) will be returned.
 /// Yoinked from: https://github.com/rust-lang/git2-rs/issues/332#issuecomment-408453956
-type AheadRemote = bool;
-type BehindRemote = bool;
+type AheadRemote = usize;
+type BehindRemote = usize;
 fn commit_status(repo: &Repository) -> (AheadRemote, BehindRemote) {
     let head = repo.revparse_single("HEAD").unwrap().id();
     if let Ok((upstream, _)) = repo.revparse_ext("@{u}") {
         return match repo.graph_ahead_behind(head, upstream.id()) {
-            Ok((commits_ahead, commits_behind)) => (commits_ahead > 0, commits_behind > 0),
-            Err(_) => (false, false),
+            Ok((commits_ahead, commits_behind)) => (commits_ahead, commits_behind),
+            Err(_) => (0, 0),
         };
     }
-    (false, false)
+    (0, 0)
 }
 
 fn minutes_since_last(repo: &Repository) -> Result<u64> {
@@ -176,7 +201,6 @@ fn format_status(options: Options) -> Result<String> {
         }
     }
 
-    let (unstaged_changes, staged_changes) = repo_status(&repo)?;
     let mut s = match repo.head() {
         Ok(head) => {
             let current_branch = head
@@ -187,17 +211,34 @@ fn format_status(options: Options) -> Result<String> {
                     .unwrap_or("\u{f071a}".to_string())
             });
             let mut changes = String::new();
-            if options.separate_changes {
-                if unstaged_changes {
+            if !options.detailed_info {
+                let (unstaged_changes, staged_changes) = repo_status_bin(&repo)?;
+                if options.separate_changes {
+                    if unstaged_changes {
+                        changes += &options.unstaged_string;
+                    }
+                    if staged_changes {
+                        changes += &options.staged_string;
+                    }
+                } else if unstaged_changes || staged_changes {
                     changes += &options.unstaged_string;
                 }
-                if staged_changes {
-                    changes += &options.staged_string;
+            } else {
+                let (unstaged_changes, staged_changes) = repo_status(&repo)?;
+
+                if unstaged_changes > 0 && staged_changes > 0 {
+                    changes += &format!(", {unstaged_changes} unstaged, {staged_changes} staged");
+                } else if unstaged_changes > 0 {
+                    changes += &format!(", {unstaged_changes} unstaged");
+                } else if staged_changes > 0 {
+                    changes += &format!(", {staged_changes} staged");
                 }
-            } else if unstaged_changes || staged_changes {
-                changes += &options.unstaged_string;
             }
-            let mut s = format!("{changes}{current_branch}");
+            let mut s = if options.detailed_info {
+                format!("{current_branch}{changes}")
+            } else {
+                format!("{changes}{current_branch}")
+            };
             if let Some(remote_icon) = remote_icon {
                 s = format!("{remote_icon} {s}")
             }
@@ -206,12 +247,23 @@ fn format_status(options: Options) -> Result<String> {
             }
             if options.commit_arrow {
                 let (is_ahead, is_behind) = commit_status(&repo);
-                if is_ahead && is_behind {
-                    s = format!("{s} {}/{}", options.commit_ahead, options.commit_behind)
-                } else if is_ahead {
-                    s = format!("{s} {}", options.commit_ahead)
-                } else if is_behind {
-                    s = format!("{s} {}", options.commit_behind)
+                if !options.detailed_info {
+                    if is_ahead > 0 && is_behind > 0 {
+                        s = format!("{s} {}/{}", options.commit_ahead, options.commit_behind)
+                    } else if is_ahead > 0 {
+                        s = format!("{s} {}", options.commit_ahead)
+                    } else if is_behind > 0 {
+                        s = format!("{s} {}", options.commit_behind)
+                    }
+                } else if is_ahead > 0 && is_behind > 0 {
+                    s = format!(
+                        "{s}, {}{is_ahead}/{}{is_behind}",
+                        options.commit_ahead, options.commit_behind
+                    )
+                } else if is_ahead > 0 {
+                    s = format!("{s}, {} {is_ahead}", options.commit_ahead)
+                } else if is_behind > 0 {
+                    s = format!("{s}, {} {is_behind}", options.commit_behind)
                 }
             }
             s
