@@ -39,6 +39,7 @@ should_fetch = true
 fetch_time = 30
 commit_behind = ""
 commit_ahead = ""
+detailed_info = false
 ```
 
 If you want to use command line options these are the available options:
@@ -57,7 +58,7 @@ Options:
   -t, --staged-string <STRING>
           Show a custom string when a repository has staged changes. Only used when you use the `--sc` flag [default: +]
       --sc
-          Seperate the symbols for staged and unstaged changes
+          separate the symbols for staged and unstaged changes
   -i, --icon
           Show icons representative of your remote
   -E, --error
@@ -78,6 +79,8 @@ Options:
           Override the commit behind arrow [default: ]
       --commit-ahead <COMMIT_AHEAD>
           Override the commit ahead arrow [default: ]
+      --di
+          Show a more detailed view
   -h, --help
           Print help
   -V, --version
