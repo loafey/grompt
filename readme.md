@@ -33,11 +33,12 @@ icon_override = [
         "git@gitlab.com|\uf296 |252,109,38"
     ]
 icon_color = true
-commit_arrow = false
+commit_arrow = true
 fetch_icon = "󰥔 "
-should_fetch = false
-commit_behind = ""
-commit_ahead = ""
+should_fetch = true
+fetch_time = 30
+commit_behind = ""
+commit_ahead = ""
 ```
 
 If you want to use command line options these are the available options:
