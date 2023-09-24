@@ -2,9 +2,15 @@
 use anyhow::{Error, Result};
 use clap::Parser;
 use git2::{Remote, Repository, RepositoryOpenFlags, Status};
-use std::{fs::File, path::PathBuf, process::Command};
+use serde::{Deserialize, Serialize};
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::PathBuf,
+    process::Command,
+};
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Serialize, Deserialize)]
 #[command(author = "loafey", version = "0.1", about = "
 A tool to get the status of your git repos.
 Designed to easily be integrated into prompts.", long_about = None)]
@@ -45,6 +51,7 @@ struct Options {
     #[arg(short = 'E', long = "error", default_value = "false")]
     print_error: bool,
     /// Add custom icons for your own git hosts, alternatively override the built in-ones.
+
     /// Add input `-o "git@|<STRING>", to replace the icon for all `git@` remotes.
     /// Use the option multiple times for multiple icons, `-o "git@|<STRING>" -o "https://github.com|<STRING>"` etc.
     /// Optionally you can add three bytes after to add a color to the icon.
@@ -81,8 +88,28 @@ struct Options {
     commit_ahead: String,
 }
 
+fn get_options_file() -> Result<Result<Options, toml::de::Error>> {
+    let xdg_dirs = xdg::BaseDirectories::with_prefix("grompt")?;
+    let config_path = xdg_dirs.place_config_file("config.toml")?;
+    let mut f = File::open(config_path)?;
+    let mut buf = String::new();
+    f.read_to_string(&mut buf)?;
+    Ok(toml::from_str(&buf))
+}
+
+fn get_options() -> Options {
+    match get_options_file() {
+        Ok(Ok(options)) => options,
+        Ok(Err(e)) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+        Err(_) => Options::parse(),
+    }
+}
+
 fn main() {
-    let options = Options::parse();
+    let options = get_options();
     let print_error = options.print_error;
     match format_status(options) {
         Err(e) => {
