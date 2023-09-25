@@ -1,4 +1,3 @@
-#![feature(let_chains)]
 use anyhow::{Error, Result};
 use git2::{Remote, Repository, RepositoryOpenFlags, Status};
 use options::{get_options, Options};
@@ -94,7 +93,7 @@ fn get_icon(repo: &Repository, icon_override: Vec<String>, icon_color: bool) -> 
         .iter()
         .find(|(start, _, _)| remote_uri.starts_with(start));
     let icon = if let Some((_, sub, c)) = icon {
-        if icon_color && let Some([r,g,b]) = c {
+        if let (Some([r, g, b]), true) = (c, icon_color) {
             sub.truecolor(*r, *g, *b).to_string()
         } else {
             sub.clone()
