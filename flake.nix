@@ -1,5 +1,5 @@
 {
-    description = "A very basic flake";
+    description = "grompt";
 
     inputs = {
         nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -32,6 +32,7 @@
                 nativeBuildInputs = with pkgs; [
                     pkg-config
                     openssl
+                    gcc
                 ];
             };
 
@@ -42,6 +43,7 @@
                     rust-analyzer
                     pkg-config
                     openssl
+                    gcc
                 ];
             };
         });
