@@ -178,6 +178,10 @@ fn minutes_since_last(repo: &Repository) -> Result<u64> {
     Ok(modified_time.as_secs() / 60)
 }
 
+fn is_in_nix_shell() -> bool {
+    std::env::var("IN_NIX_SHELL").is_ok()
+}
+
 fn format_status(options: Options) -> Result<String> {
     let path = options.path;
     let repo = Repository::open_ext(
@@ -267,6 +271,9 @@ fn format_status(options: Options) -> Result<String> {
                 } else if is_behind > 0 {
                     s = format!("{s}, {} {is_behind}", options.commit_behind)
                 }
+            }
+            if options.detect_nix && is_in_nix_shell() {
+                s = format!("{s} {}", options.nix_symbol)
             }
             s
         }

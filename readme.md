@@ -44,6 +44,9 @@ detailed_info = false
 
 If you want to use command line options these are the available options:
 ```
+A tool to get the status of your git repos.
+Designed to easily be integrated into prompts.
+
 Usage: grompt [OPTIONS]
 
 Options:
@@ -81,6 +84,10 @@ Options:
           Override the commit ahead arrow [default: ]
       --di
           Show a more detailed view
+  -n, --nix
+          Show if you are in a nix shell. Looks for the IN_NIX_SHELL environment variable
+      --nix-icon <NIX_SYMBOL>
+          The symbol to show if you are in a nix shell, defaults to "󱄅" [default: ]
   -h, --help
           Print help
   -V, --version

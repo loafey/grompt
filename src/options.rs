@@ -123,6 +123,16 @@ pub struct Options {
     #[arg(long = "di", default_value = "false")]
     #[serde(default)]
     pub detailed_info: bool,
+
+    /// Show if you are in a nix shell. Looks for the IN_NIX_SHELL environment variable.
+    #[arg(long = "nix", short = 'n', default_value = "false")]
+    #[serde(default)]
+    pub detect_nix: bool,
+
+    /// The symbol to show if you are in a nix shell, defaults to "󱄅"
+    #[arg(long = "nix-icon", default_value = "\u{f313}")]
+    #[serde(default)]
+    pub nix_symbol: String,
 }
 
 fn get_options_file() -> Result<Result<Options, toml::de::Error>> {
