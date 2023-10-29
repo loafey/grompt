@@ -130,7 +130,7 @@ pub struct Options {
     pub detect_nix: bool,
 
     /// The symbol to show if you are in a nix shell, defaults to "󱄅"
-    #[arg(long = "nix-icon", default_value = "\u{f313}")]
+    #[arg(long = "nix-icon", default_value = "\u{f313} ")]
     #[serde(default)]
     pub nix_symbol: String,
 }
