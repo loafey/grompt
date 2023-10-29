@@ -13,3 +13,9 @@ owo-colors = "3.5.0"
 serde = { version = "1.0.188", features = ["derive"] }
 toml = "0.8.0"
 xdg = "2.5.2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
