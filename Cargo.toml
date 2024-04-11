@@ -19,3 +19,11 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+[lib]
+name = "grompt"
+path = "src/lib.rs"
+
+[[bin]]
+name = "grompt"
+path = "src/bin.rs"

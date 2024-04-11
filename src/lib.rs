@@ -1,21 +1,115 @@
 use anyhow::{Error, Result};
 use git2::{Remote, Repository, RepositoryOpenFlags, Status};
-use options::{get_options, Options};
+use options::Options;
 use std::{fs::File, process::Command};
-mod options;
+pub mod options;
 
-fn main() {
-    let options = get_options();
-    let print_error = options.print_error;
-    match format_status(options) {
-        Err(e) => {
-            if print_error {
-                eprintln!("{e}");
+pub fn format_status(options: Options) -> Result<String> {
+    let path = options.path;
+    let repo = Repository::open_ext(
+        path,
+        RepositoryOpenFlags::CROSS_FS,
+        &[] as &[&std::ffi::OsStr],
+    )?;
+
+    let mut fetch_reminder = None;
+    if let Some(minutes) = options.fetch_time {
+        if let Ok(min_since_last) = minutes_since_last(&repo) {
+            if min_since_last >= minutes {
+                if options.should_fetch {
+                    // I could use `git2` but honestly easier this way.
+                    Command::new("git").arg("fetch").spawn()?.wait()?;
+                } else {
+                    fetch_reminder = Some(&options.fetch_icon);
+                }
             }
-            std::process::exit(1);
         }
-        Ok(res) => println!("{res}"),
     }
+
+    let mut s = match repo.head() {
+        Ok(head) => {
+            let current_branch = head
+                .shorthand()
+                .ok_or(Error::msg("Failed to get branch name"))?;
+            let remote_icon = options.remote_icon.then(|| {
+                get_icon(&repo, options.icon_override, options.icon_color)
+                    .unwrap_or("\u{f071a}".to_string())
+            });
+            let mut changes = String::new();
+            if !options.detailed_info {
+                let (unstaged_changes, staged_changes) = repo_status_bin(&repo)?;
+                if options.separate_changes {
+                    if unstaged_changes {
+                        changes += &options.unstaged_string;
+                    }
+                    if staged_changes {
+                        changes += &options.staged_string;
+                    }
+                } else if unstaged_changes || staged_changes {
+                    changes += &options.unstaged_string;
+                }
+            } else {
+                let (unstaged_changes, staged_changes) = repo_status(&repo)?;
+
+                if unstaged_changes > 0 && staged_changes > 0 {
+                    changes += &format!(
+                        ", {unstaged_changes}{}, {staged_changes}{}",
+                        options.unstaged_string, options.staged_string,
+                    );
+                } else if unstaged_changes > 0 {
+                    changes += &format!(", {unstaged_changes}{}", options.unstaged_string);
+                } else if staged_changes > 0 {
+                    changes += &format!(", {staged_changes}{}", options.staged_string);
+                }
+            }
+            let mut s = if options.detailed_info {
+                format!("{current_branch}{changes}")
+            } else {
+                format!("{changes}{current_branch}")
+            };
+            if let Some(remote_icon) = remote_icon {
+                s = format!("{remote_icon} {s}")
+            }
+            if let Some(fetch_reminder) = fetch_reminder {
+                s = format!("{fetch_reminder} {s}")
+            }
+            if options.commit_arrow {
+                let (is_ahead, is_behind) = commit_status(&repo);
+                if !options.detailed_info {
+                    if is_ahead > 0 && is_behind > 0 {
+                        s = format!("{s} {}/{}", options.commit_ahead, options.commit_behind)
+                    } else if is_ahead > 0 {
+                        s = format!("{s} {}", options.commit_ahead)
+                    } else if is_behind > 0 {
+                        s = format!("{s} {}", options.commit_behind)
+                    }
+                } else if is_ahead > 0 && is_behind > 0 {
+                    s = format!(
+                        "{s}, {}{is_ahead}/{}{is_behind}",
+                        options.commit_ahead, options.commit_behind
+                    )
+                } else if is_ahead > 0 {
+                    s = format!("{s}, {} {is_ahead}", options.commit_ahead)
+                } else if is_behind > 0 {
+                    s = format!("{s}, {} {is_behind}", options.commit_behind)
+                }
+            }
+            if options.detect_nix && is_in_nix_shell() {
+                s = format!("{s} {}", options.nix_symbol)
+            }
+            s
+        }
+        Err(_) => "no head".to_string(),
+    };
+
+    if options.parentheses {
+        s = format!("({s})")
+    }
+    if options.square_brackets {
+        s = format!("[{s}]")
+    }
+
+    Ok(s)
 }
 
 fn create_icons(icon_override: Vec<String>) -> Vec<(String, String, Option<[u8; 3]>)> {
@@ -182,110 +276,3 @@ fn is_in_nix_shell() -> bool {
     std::env::var("IN_NIX_SHELL").is_ok()
 }
 
-fn format_status(options: Options) -> Result<String> {
-    let path = options.path;
-    let repo = Repository::open_ext(
-        path,
-        RepositoryOpenFlags::CROSS_FS,
-        &[] as &[&std::ffi::OsStr],
-    )?;
-
-    let mut fetch_reminder = None;
-    if let Some(minutes) = options.fetch_time {
-        if let Ok(min_since_last) = minutes_since_last(&repo) {
-            if min_since_last >= minutes {
-                if options.should_fetch {
-                    // I could use `git2` but honestly easier this way.
-                    Command::new("git").arg("fetch").spawn()?.wait()?;
-                } else {
-                    fetch_reminder = Some(&options.fetch_icon);
-                }
-            }
-        }
-    }
-
-    let mut s = match repo.head() {
-        Ok(head) => {
-            let current_branch = head
-                .shorthand()
-                .ok_or(Error::msg("Failed to get branch name"))?;
-            let remote_icon = options.remote_icon.then(|| {
-                get_icon(&repo, options.icon_override, options.icon_color)
-                    .unwrap_or("\u{f071a}".to_string())
-            });
-            let mut changes = String::new();
-            if !options.detailed_info {
-                let (unstaged_changes, staged_changes) = repo_status_bin(&repo)?;
-                if options.separate_changes {
-                    if unstaged_changes {
-                        changes += &options.unstaged_string;
-                    }
-                    if staged_changes {
-                        changes += &options.staged_string;
-                    }
-                } else if unstaged_changes || staged_changes {
-                    changes += &options.unstaged_string;
-                }
-            } else {
-                let (unstaged_changes, staged_changes) = repo_status(&repo)?;
-
-                if unstaged_changes > 0 && staged_changes > 0 {
-                    changes += &format!(
-                        ", {unstaged_changes}{}, {staged_changes}{}",
-                        options.unstaged_string, options.staged_string,
-                    );
-                } else if unstaged_changes > 0 {
-                    changes += &format!(", {unstaged_changes}{}", options.unstaged_string);
-                } else if staged_changes > 0 {
-                    changes += &format!(", {staged_changes}{}", options.staged_string);
-                }
-            }
-            let mut s = if options.detailed_info {
-                format!("{current_branch}{changes}")
-            } else {
-                format!("{changes}{current_branch}")
-            };
-            if let Some(remote_icon) = remote_icon {
-                s = format!("{remote_icon} {s}")
-            }
-            if let Some(fetch_reminder) = fetch_reminder {
-                s = format!("{fetch_reminder} {s}")
-            }
-            if options.commit_arrow {
-                let (is_ahead, is_behind) = commit_status(&repo);
-                if !options.detailed_info {
-                    if is_ahead > 0 && is_behind > 0 {
-                        s = format!("{s} {}/{}", options.commit_ahead, options.commit_behind)
-                    } else if is_ahead > 0 {
-                        s = format!("{s} {}", options.commit_ahead)
-                    } else if is_behind > 0 {
-                        s = format!("{s} {}", options.commit_behind)
-                    }
-                } else if is_ahead > 0 && is_behind > 0 {
-                    s = format!(
-                        "{s}, {}{is_ahead}/{}{is_behind}",
-                        options.commit_ahead, options.commit_behind
-                    )
-                } else if is_ahead > 0 {
-                    s = format!("{s}, {} {is_ahead}", options.commit_ahead)
-                } else if is_behind > 0 {
-                    s = format!("{s}, {} {is_behind}", options.commit_behind)
-                }
-            }
-            if options.detect_nix && is_in_nix_shell() {
-                s = format!("{s} {}", options.nix_symbol)
-            }
-            s
-        }
-        Err(_) => "no head".to_string(),
-    };
-
-    if options.parentheses {
-        s = format!("({s})")
-    }
-    if options.square_brackets {
-        s = format!("[{s}]")
-    }
-
-    Ok(s)
-}

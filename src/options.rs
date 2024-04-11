@@ -135,6 +135,7 @@ pub struct Options {
     pub nix_symbol: String,
 }
 
+#[allow(unused)]
 fn get_options_file() -> Result<Result<Options, toml::de::Error>> {
     let xdg_dirs = xdg::BaseDirectories::with_prefix("grompt")?;
     let config_path = xdg_dirs.place_config_file("config.toml")?;
@@ -144,6 +145,7 @@ fn get_options_file() -> Result<Result<Options, toml::de::Error>> {
     Ok(toml::from_str(&buf))
 }
 
+#[allow(unused)]
 pub fn get_options() -> Options {
     match get_options_file() {
         Ok(Ok(options)) => options,
