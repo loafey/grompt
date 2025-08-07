@@ -44,6 +44,7 @@
                     pkg-config
                     openssl
                     gcc
+		    iconv
                 ];
             };
         });
