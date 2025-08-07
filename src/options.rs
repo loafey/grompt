@@ -137,7 +137,7 @@ pub struct Options {
 
 #[allow(unused)]
 fn get_options_file() -> Result<Result<Options, toml::de::Error>> {
-    let xdg_dirs = xdg::BaseDirectories::with_prefix("grompt")?;
+    let xdg_dirs = xdg::BaseDirectories::with_prefix("grompt");
     let config_path = xdg_dirs.place_config_file("config.toml")?;
     let mut f = File::open(config_path)?;
     let mut buf = String::new();
