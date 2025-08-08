@@ -33,6 +33,8 @@
                     pkg-config
                     openssl
                     gcc
+		    pkg-config
+		    libssh2
                 ];
             };
 
@@ -43,6 +45,7 @@
                     rust-analyzer
                     pkg-config
                     openssl
+		    libssh2
                     gcc
 		    iconv
                 ];
