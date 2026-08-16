@@ -25,22 +25,16 @@
           rustc = toolchain;
         }).buildPackage {
           src = ./.;
-          nativeBuildInputs = min-pkgs;
-          shellHook = ''
-            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${
-              pkgs.lib.makeLibraryPath min-pkgs
-            }"'';
-          buildInputs = min-pkgs;
+          nativeBuildInputs = with pkgs; [ ] ++ min-pkgs;
         };
 
-        devShell = pkgs.mkShell {
-          nativeBuildInputs = with pkgs;
-            [ rustc cargo rust-analyzer iconv ] ++ min-pkgs;
-          buildInputs = min-pkgs;
-          shellHook = ''
-            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${
-              pkgs.lib.makeLibraryPath min-pkgs
-            }"'';
+        devShell = (naersk.lib.${system}.override {
+          cargo = toolchain;
+          rustc = toolchain;
+        }).buildPackage {
+          src = ./.;
+          dontPatchELF = true;
+          nativeBuildInputs = with pkgs; [ ] ++ min-pkgs;
         };
       });
 }
